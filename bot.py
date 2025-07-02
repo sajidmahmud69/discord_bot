@@ -88,6 +88,12 @@ async def play(interaction: discord.Interaction, song_query:str):
     voice_client.play(source)
     await interaction.followup.send(f'Now playing: {title}')
 
+
+@bot.tree.command(name = 'stop', description = 'Disconnect Musica')
+async def stop(interaction: discord.Interaction):
+    await interaction.guild.voice_client.disconnect()
+
+
 def run():
     bot.run(TOKEN)
 

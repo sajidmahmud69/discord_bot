@@ -56,8 +56,6 @@ async def play(ctx, *args):
         #'format': 'bestaudio[abr<=96]/bestaudio',
         'format': 'bestaudio[ext=webm][acodec=opus]/bestaudio',
         'noplaylist': True,
-        #'youtube_include_dash_manifest': False,
-        #'youtube_include_hls_manifest': False,
     }
 
     query = 'ytsearch1: ' + song_query
@@ -86,6 +84,9 @@ async def play(ctx, *args):
     await ctx.send(f'Now playing: {title}')
 
     
+@bot.command()
+async def stop(ctx):
+    await ctx.guild.voice_client.disconnect()
 bot.run(TOKEN)
 
 
