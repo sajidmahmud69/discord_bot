@@ -9,6 +9,8 @@ import asyncio
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
 GUILD_ID = 1309646863292432464
+song_queues = {}  # Key: guild.id, Value: list of (audio_url, title)
+
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -46,6 +48,7 @@ async def play(ctx, *args):
 
     voice_channel = ctx.author.voice.channel 
     voice_client = ctx.guild.voice_client
+    guild_id = ctx.guild.id
 
     if not voice_client:
         voice_client = await voice_channel.connect()
@@ -70,23 +73,69 @@ async def play(ctx, *args):
     audio_url = first_track['url']
     title = first_track.get('title', 'Untitled')
 
+	# Iniitialize queue if needed
+    if guild_id not in song_queues:
+	    song_queues[guild_id] = []
+	
+	# Add song to queue
+    song_queues[guild_id].append((audio_url, title))
+    await ctx.send(f'Queued: {title}')
+	
+    # Start playback if not already playing
+    if not voice_client.is_playing():
+        await play_next_in_queue(ctx.guild, voice_client)
+
+
+async def play_next_in_queue(guild, voice_client):
+    queue = song_queues.get(guild.id)
+    if not queue or len(queue) == 0:
+        await voice_client.disconnect()
+        return
+
+    audio_url, title = queue.pop(0)
     ffmpeg_options = {
         'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
         'options': '-vn'
     }
+    source = discord.FFmpegOpusAudio(audio_url, **ffmpeg_options, executable='/usr/bin/ffmpeg')
 
-    source = discord.FFmpegOpusAudio(audio_url, **ffmpeg_options, executable = '/usr/bin/ffmpeg')
+    def after_playing(error):
+        fut = asyncio.run_coroutine_threadsafe(
+            play_next_in_queue(guild, voice_client),
+            bot.loop
+        )
+        try:
+            fut.result()
+        except Exception as e:
+            print(f"Error in playback: {e}")
 
-    if voice_client.is_playing():
-        voice_client.stop()
+    voice_client.play(source, after=after_playing)
 
-    voice_client.play(source)
-    await ctx.send(f'Now playing: {title}')
+    channel = discord.utils.get(guild.text_channels, name="general")  # Or wherever you want to send now playing
+    if channel:
+        await channel.send(f"Now playing: {title}")
 
     
 @bot.command()
 async def stop(ctx):
     await ctx.guild.voice_client.disconnect()
+
+
+@bot.command()
+async def queue(ctx):
+    queue = song_queues.get(ctx.guild.id, [])
+    if not queue:
+        await ctx.send("The queue is empty.")
+    else:
+        msg = "\n".join([f"{i+1}. {title}" for i, (_, title) in enumerate(queue)])
+        await ctx.send(f"**Current Queue:**\n{msg}")
+
+
+@bot.command()
+async def skip(ctx):
+    vc = ctx.guild.voice_client
+    if vc and vc.is_playing():
+        vc.stop()
+        await ctx.send("Skipped current track.")
+
 bot.run(TOKEN)
-
-
