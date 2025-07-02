@@ -1,4 +1,4 @@
-import bot
+import bot3
 
 if __name__ == '__main__':
-    bot.run()
+    bot3.run()

@@ -110,6 +110,7 @@ async def play_next_in_queue(guild, voice_client):
             print(f"Error in playback: {e}")
 
     voice_client.play(source, after=after_playing)
+    voice_client.current_title = title
 
     channel = discord.utils.get(guild.text_channels, name="general")  # Or wherever you want to send now playing
     if channel:
@@ -124,11 +125,25 @@ async def stop(ctx):
 @bot.command()
 async def queue(ctx):
     queue = song_queues.get(ctx.guild.id, [])
-    if not queue:
+    voice_client = ctx.guild.voice_client
+
+    if not queue and not (voice_client and voice_client.is_playing()):
         await ctx.send("The queue is empty.")
-    else:
-        msg = "\n".join([f"{i+1}. {title}" for i, (_, title) in enumerate(queue)])
-        await ctx.send(f"**Current Queue:**\n{msg}")
+        return
+
+    lines = []
+
+    # Show current playing
+    if voice_client and voice_client.is_playing():
+        current_track = getattr(voice_client, "current_title", None)
+        if current_track:
+            lines.append(f"🟢 **Playing:** `{current_track}`")
+
+    # Show rest of queue
+    for i, (_, title) in enumerate(queue):
+        lines.append(f"{i + 1}. {title}")
+
+    await ctx.send("\n".join(lines))
 
 
 @bot.command()
@@ -138,4 +153,15 @@ async def skip(ctx):
         vc.stop()
         await ctx.send("Skipped current track.")
 
-bot.run(TOKEN)
+
+@bot.command()
+async def h(ctx):
+    msg = '**!play** Play a song or add it to the queue\n'
+    msg += '**!queue** Show the list of songs that are queued to play\n'
+    msg += '**!stop** Disconnect the bot\n'
+    msg += '**!skip** Skip the current track\n'
+    await ctx.send(f"🟢 **Commands:** 🟢\n{msg}")
+
+
+def run():
+    bot.run(TOKEN)
