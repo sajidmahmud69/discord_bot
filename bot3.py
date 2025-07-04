@@ -83,10 +83,11 @@ async def play(ctx, *args):
 	
     # Start playback if not already playing
     if not voice_client.is_playing():
-        await play_next_in_queue(ctx.guild, voice_client)
+        await play_next_in_queue(ctx, voice_client)
 
 
-async def play_next_in_queue(guild, voice_client):
+async def play_next_in_queue(ctx, voice_client):
+    guild = ctx.guild
     queue = song_queues.get(guild.id)
     if not queue or len(queue) == 0:
         await voice_client.disconnect()
@@ -101,7 +102,7 @@ async def play_next_in_queue(guild, voice_client):
 
     def after_playing(error):
         fut = asyncio.run_coroutine_threadsafe(
-            play_next_in_queue(guild, voice_client),
+            play_next_in_queue(ctx, voice_client),
             bot.loop
         )
         try:
@@ -110,11 +111,8 @@ async def play_next_in_queue(guild, voice_client):
             print(f"Error in playback: {e}")
 
     voice_client.play(source, after=after_playing)
+    await ctx.send(f"Now playing: {title}")
     voice_client.current_title = title
-
-    channel = discord.utils.get(guild.text_channels, name="general")  # Or wherever you want to send now playing
-    if channel:
-        await channel.send(f"Now playing: {title}")
 
     
 @bot.command()
